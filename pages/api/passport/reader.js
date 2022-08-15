@@ -20,7 +20,7 @@ export default async function reader(req, res) {
 	const key = process.env.IAM_JWK || DIDKit.generateEd25519Key();
 	let hash = '';
 
-	if (key) {
+	if (key && result) {
 		hash = base64.encode(
 			createHash('sha256')
 				.update(key, 'utf-8')
@@ -29,5 +29,5 @@ export default async function reader(req, res) {
 		);
 	}
 
-	res.json({ passport: result });
+	res.json({ hash: hash });
 }
