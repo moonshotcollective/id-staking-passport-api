@@ -1,3 +1,4 @@
+import { StaticJsonRpcProvider, Web3Provider } from '@ethersproject/providers';
 import { PassportReader } from '@gitcoinco/passport-sdk-reader';
 // --- Crypto lib for hashing
 import { randomBytes } from 'crypto';
@@ -37,7 +38,10 @@ const fetchSignaturePayload = async (passport, signer) => {
 
 export default async function reader(req, res) {
 	const address = req.query.address?.toString().toLowerCase();
-	const signer = req.query.signer;
+
+	// Get the provider
+	const provider = new StaticJsonRpcProvider(process.env.MAINNET_RPC_URL);
+	const signer = provider.getSigner();
 
 	// Passport prod node is the default
 	const node = req.query.node || process.env.CERAMIC_CLIENT_URL;
