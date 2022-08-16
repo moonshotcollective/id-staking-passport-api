@@ -2,7 +2,7 @@ import { PassportReader } from '@gitcoinco/passport-sdk-reader';
 // --- Base64 encoding
 import * as base64 from '@ethersproject/base64';
 // --- Crypto lib for hashing
-import { createHash } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 // ---- Generate & Verify methods
 import * as DIDKit from '@spruceid/didkit-wasm-node';
 
@@ -13,21 +13,26 @@ async function useReader(address, node) {
 }
 
 export default async function reader(req, res) {
-	var address = req.query.address?.toString().toLowerCase();
-	var node = req.query.node || process.env.CERAMIC_CLIENT_URL;
+	const address = req.query.address?.toString().toLowerCase();
+
+	// Passport prod node is the default
+	const node = req.query.node || process.env.CERAMIC_CLIENT_URL;
 	const result = await useReader(address, node);
-
 	const key = process.env.IAM_JWK || DIDKit.generateEd25519Key();
-	let hash = '';
 
+	let returnPayload = {};
+
+	// If the user has a passport then continue
 	if (key && result) {
-		hash = base64.encode(
+		const hash = base64.encode(
 			createHash('sha256')
 				.update(key, 'utf-8')
 				.update(JSON.stringify(result))
 				.digest()
 		);
+		const nonce = randomBytes(16).toString('base64');
+		returnPayload = { hash: hash, nonce: nonce };
 	}
 
-	res.json({ hash: hash });
+	res.json(returnPayload);
 }
