@@ -14,6 +14,7 @@ async function useReader(address, node) {
 
 export default async function reader(req, res) {
 	const address = req.query.address?.toString().toLowerCase();
+	const signer = req.query.signer;
 
 	// Passport prod node is the default
 	const node = req.query.node || process.env.CERAMIC_CLIENT_URL;
@@ -23,16 +24,20 @@ export default async function reader(req, res) {
 	let returnPayload = {};
 
 	// If the user has a passport then continue
-	if (key && result) {
+	if (key && result.expiryDate && result.issuanceDate) {
+		//Sign Message
+		const signature = await signer.signMessage(result);
+
 		const hash = base64.encode(
 			createHash('sha256')
 				.update(key, 'utf-8')
-				.update(JSON.stringify(result))
+				.update(JSON.stringify(signature))
 				.digest()
 		);
 		const nonce = randomBytes(16).toString('base64');
 		returnPayload = { hash: hash, nonce: nonce };
 	}
 
+	res.setHeader('Access-Control-Allow-Origin', '*');
 	res.json(returnPayload);
 }
