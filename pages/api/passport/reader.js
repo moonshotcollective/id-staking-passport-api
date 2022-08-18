@@ -4,18 +4,16 @@ import * as base64 from '@ethersproject/base64';
 // --- Crypto lib for hashing
 import { createHash, randomBytes } from 'crypto';
 
-async function useReader(address, node) {
-	const reader = new PassportReader(node);
+async function useReader(address) {
+	const reader = new PassportReader();
 	const passport = await reader.getPassport(address);
 	return passport;
 }
 
 export default async function reader(req, res) {
 	const address = req.query.address?.toString().toLowerCase();
-
 	// Passport prod node is the default
-	const node = req.query.node || process.env.CERAMIC_CLIENT_URL;
-	const passport = await useReader(address, node);
+	const passport = await useReader(address);
 	let returnPayload = {};
 	let hash = '';
 
