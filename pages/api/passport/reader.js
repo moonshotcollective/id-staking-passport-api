@@ -1,8 +1,7 @@
 import { PassportReader } from '@gitcoinco/passport-sdk-reader';
-// --- Base64 encoding
-import * as base64 from '@ethersproject/base64';
 // --- Crypto lib for hashing
-import { createHash, randomBytes } from 'crypto';
+import { randomBytes } from 'crypto';
+import { ethers } from 'ethers';
 
 async function useReader(address) {
 	const reader = new PassportReader();
@@ -11,29 +10,65 @@ async function useReader(address) {
 }
 
 export default async function reader(req, res) {
+	// user address
 	const address = req.query.address?.toString().toLowerCase();
+
+	const contractName = req.query.contractName?.toString().toLowerCase();
+	const verifyingContract = req.query.verifyingContract
+		?.toString()
+		.toLowerCase();
+
 	// Passport prod node is the default
 	const passport = await useReader(address);
 	let returnPayload = {};
-	let hash = '';
 
-	const key = process.env.IAM_JWK;
+	const key = process.env.PRIVATE_KEY;
 	if (!key) {
-		return (returnPayload = { error: 'IAM_JWK not found' });
+		return (returnPayload = { error: 'Private key not found' });
 	}
 
 	try {
 		// If the user has a passport then continue
 		if (passport.expiryDate && passport.issuanceDate) {
-			hash = base64.encode(
-				createHash('sha256')
-					.update(key, 'utf-8')
-					.update(JSON.stringify(passport))
-					.digest()
-			);
+			// signature data
 			const nonce = randomBytes(16).toString('base64');
+			const timestamp = Date.now();
+
+			// initialize a wallet
+			const mnemonic = process.env.WALLET_MNEMONIC || '';
+			const wallet = ethers.Wallet.fromMnemonic(mnemonic, `m/44'/60'/0'/0/1`);
+
+			// All properties on a domain are optional
+			let domain = {
+				contractName: contractName,
+				version: '1',
+				chainId: '1',
+				verifyingContract: verifyingContract,
+			};
+
+			// The named list of all type definitions
+			const types = {
+				Data: [
+					{ name: 'passport', type: 'string' },
+					{ name: 'timestamp', type: 'string' },
+					{ name: 'nonce', type: 'uint256' },
+					{ name: 'user', type: 'address' },
+				],
+			};
+
+			// The data to sign
+			const value = {
+				passport: JSON.stringify(passport),
+				timestamp: timestamp,
+				nonce: nonce,
+				address: address,
+			};
+
+			const signature = await wallet._signTypedData(domain, types, value);
+
 			returnPayload = {
-				hash: hash,
+				signature: signature,
+				timestamp: timestamp,
 				nonce: nonce,
 			};
 		} else {
