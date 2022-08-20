@@ -13,17 +13,20 @@ export default async function reader(req, res) {
 	// user address
 	const address = req.query.address?.toString().toLowerCase();
 
-	const contractName = req.query.contractName?.toString().toLowerCase();
-	const verifyingContract = req.query.verifyingContract
-		?.toString()
-		.toLowerCase();
-
 	// Passport prod node is the default
 	const passport = await useReader(address);
 	let returnPayload = {};
 
-	const key = process.env.PRIVATE_KEY;
-	if (!key) {
+	// initialize a wallet
+	const mnemonic = process.env.PRIVATE_KEY || '';
+	const account = ethers.Wallet.fromMnemonic(mnemonic);
+
+	const wallet = new ethers.Wallet(
+		account.privateKey,
+		ethers.getDefaultProvider()
+	);
+
+	if (!wallet || !wallet.privateKey) {
 		return (returnPayload = { error: 'Private key not found' });
 	}
 
@@ -34,16 +37,12 @@ export default async function reader(req, res) {
 			const nonce = randomBytes(16).toString('base64');
 			const timestamp = Date.now();
 
-			// initialize a wallet
-			const mnemonic = process.env.WALLET_MNEMONIC || '';
-			const wallet = ethers.Wallet.fromMnemonic(mnemonic, `m/44'/60'/0'/0/1`);
-
 			// All properties on a domain are optional
 			let domain = {
-				contractName: contractName,
-				version: '1',
+				name: 'IDStaking',
+				version: '1.0',
 				chainId: '1',
-				verifyingContract: verifyingContract,
+				verifyingContract: process.env.CONTRACT_ADDRESS,
 			};
 
 			// The named list of all type definitions
@@ -51,7 +50,7 @@ export default async function reader(req, res) {
 				Data: [
 					{ name: 'passport', type: 'string' },
 					{ name: 'timestamp', type: 'string' },
-					{ name: 'nonce', type: 'uint256' },
+					{ name: 'nonce', type: 'string' },
 					{ name: 'user', type: 'address' },
 				],
 			};
@@ -61,7 +60,7 @@ export default async function reader(req, res) {
 				passport: JSON.stringify(passport),
 				timestamp: timestamp,
 				nonce: nonce,
-				address: address,
+				user: address,
 			};
 
 			const signature = await wallet._signTypedData(domain, types, value);
