@@ -11,9 +11,9 @@ async function useReader(address) {
 
 export default async function reader(req, res) {
 	// user address
-	const address = req.query.address?.toString().toLowerCase();
+	const address = req.body.address?.toString().toLowerCase();
 	//GET CHAIN ID for Signature domain, default to 1
-	const DOMAIN_CHAIN_ID = req.query.domainChainId?.toString().toLowerCase();
+	const DOMAIN_CHAIN_ID = req.body.domainChainId?.toString().toLowerCase();
 	// payload returned by api
 	let returnPayload = {};
 	// Passport prod node is the default
