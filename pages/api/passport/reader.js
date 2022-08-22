@@ -14,7 +14,6 @@ export default async function reader(req, res) {
 	let returnPayload = {};
 	// If the user has a passport then continue
 	if (passport.expiryDate && passport.issuanceDate) {
-		console.log('view passport ', passport);
 		returnPayload = {
 			passport: passport,
 		};
