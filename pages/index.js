@@ -97,7 +97,7 @@ function Home({ passportData }) {
 									<div>No Passport found for address entered</div>
 								)
 							) : (
-								<div>Enter an address to view stamps you have verified</div>
+								<div>Enter an address to view stamps</div>
 							)}
 						</div>
 					</div>
