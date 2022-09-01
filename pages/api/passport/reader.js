@@ -1,111 +1,122 @@
-import { PassportReader } from '@gitcoinco/passport-sdk-reader'
+import { PassportReader } from '@gitcoinco/passport-sdk-reader';
 // --- Crypto lib for hashing
-import { randomBytes } from 'crypto'
-import { ethers } from 'ethers'
+import { randomBytes } from 'crypto';
+import { ethers } from 'ethers';
 
 async function useReader(address) {
-  const reader = new PassportReader()
-  const passport = await reader.getPassport(address)
-  return passport
+	const reader = new PassportReader();
+	const passport = await reader.getPassport(address);
+	return passport;
 }
 
 export default async function reader(req, res) {
-  const { method } = req
+	const { method } = req;
 
-  res.setHeader('Access-Control-Allow-Origin', '*')
+	// Websites you wish to allow to connect
+	const allowedOrigins = [
+		'http://localhost:3000',
+		'http://localhost:3000/StakeDashboard',
+		'https://goerli-staking.surge.sh/',
+	];
+	const origin = req.headers.origin;
+	if (allowedOrigins.includes(origin)) {
+		res.setHeader('Access-Control-Allow-Origin', origin);
+	}
 
-  // Website you wish to allow to connect
-  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000')
-  
-  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000/StakeDashboard')
+	// Request methods you wish to allow
+	res.setHeader(
+		'Access-Control-Allow-Methods',
+		'GET, POST, OPTIONS, PUT, PATCH, DELETE'
+	);
 
-  res.setHeader('Access-Control-Allow-Origin', 'https://goerli-staking.surge.sh/')
+	// Request headers you wish to allow
+	res.setHeader(
+		'Access-Control-Allow-Headers',
+		'X-Requested-With,content-type'
+	);
 
-  // Request methods you wish to allow
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE')
+	// This will allow OPTIONS request
+	if (method === 'OPTIONS') {
+		return res.status(200).send('ok');
+	}
 
-  // Request headers you wish to allow
-  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type')
+	if (method !== 'POST') {
+		return res.status(403).json({ message: 'Invalid request type' });
+	}
 
-  // This will allow OPTIONS request
-  if (method === 'OPTIONS') {
-    return res.status(200).send('ok')
-  }
+	// user address
+	const address = ethers.utils.getAddress(req.body.address);
+	//GET CHAIN ID for Signature domain, default to 1
+	const DOMAIN_CHAIN_ID = req.body.domainChainId?.toString().toLowerCase();
 
-  if (method !== 'POST') {
-    return res.status(403).json({ message: 'Invalid request type' })
-  }
+	if (!address) {
+		res.status(403).json({ message: 'Invalid user address provided' });
+	}
 
-  // user address
-  const address = ethers.utils.getAddress(req.body.address)
-  //GET CHAIN ID for Signature domain, default to 1
-  const DOMAIN_CHAIN_ID = req.body.domainChainId?.toString().toLowerCase()
+	// payload returned by api
+	let returnPayload = {};
+	// Passport prod node is the default
+	const passport = await useReader(address);
 
-  if (!address) {
-    res.status(403).json({ message: 'Invalid user address provided' })
-  }
+	// If the user has a passport then continue
+	if (!passport.expiryDate || !passport.issuanceDate) {
+		return res.status(403).json({ message: 'Passport Not Found' });
+	}
 
-  // payload returned by api
-  let returnPayload = {}
-  // Passport prod node is the default
-  const passport = await useReader(address)
+	// initialize a wallet
+	const mnemonic = process.env.PRIVATE_KEY || '';
+	const account = ethers.Wallet.fromMnemonic(mnemonic);
+	const wallet = new ethers.Wallet(
+		account.privateKey,
+		ethers.getDefaultProvider()
+	);
 
-  // If the user has a passport then continue
-  if (!passport.expiryDate || !passport.issuanceDate) {
-    return res.status(403).json({ message: 'Passport Not Found' })
-  }
+	console.log({ add: wallet.address, address });
 
-  // initialize a wallet
-  const mnemonic = process.env.PRIVATE_KEY || ''
-  const account = ethers.Wallet.fromMnemonic(mnemonic)
-  const wallet = new ethers.Wallet(account.privateKey, ethers.getDefaultProvider())
+	if (!wallet || !wallet.privateKey) {
+		return res.status(403).json({ message: 'Private key not found' });
+	}
 
-  console.log({ add: wallet.address, address })
+	try {
+		// signature data
+		const nonce = randomBytes(8).toString('base64');
+		// 10 minutes from now
+		const timestamp = Math.floor(Date.now() / 1000) + 60 * 10;
 
-  if (!wallet || !wallet.privateKey) {
-    return res.status(403).json({ message: 'Private key not found' })
-  }
+		// All properties on a domain are optional
+		let domain = {
+			name: 'IDStaking',
+			version: '1.0',
+			chainId: DOMAIN_CHAIN_ID || '1',
+			verifyingContract: process.env.CONTRACT_ADDRESS,
+		};
 
-  try {
-    // signature data
-    const nonce = randomBytes(8).toString('base64')
-    // 10 minutes from now
-    const timestamp = Math.floor(Date.now() / 1000) + 60 * 10
+		// The named list of all type definitions
+		const types = {
+			Data: [
+				{ name: 'nonce', type: 'string' },
+				{ name: 'timestamp', type: 'uint256' },
+				{ name: 'user', type: 'address' },
+			],
+		};
 
-    // All properties on a domain are optional
-    let domain = {
-      name: 'IDStaking',
-      version: '1.0',
-      chainId: DOMAIN_CHAIN_ID || '1',
-      verifyingContract: process.env.CONTRACT_ADDRESS,
-    }
+		// The data to sign
+		const value = {
+			nonce,
+			timestamp,
+			user: address,
+		};
 
-    // The named list of all type definitions
-    const types = {
-      Data: [
-        { name: 'nonce', type: 'string' },
-        { name: 'timestamp', type: 'uint256' },
-        { name: 'user', type: 'address' },
-      ],
-    }
+		const signature = await wallet._signTypedData(domain, types, value);
 
-    // The data to sign
-    const value = {
-      nonce,
-      timestamp,
-      user: address,
-    }
+		returnPayload = {
+			signature: signature,
+			timestamp: timestamp,
+			nonce: nonce,
+		};
+	} catch (e) {
+		console.error(`ERROR: ${e}`);
+	}
 
-    const signature = await wallet._signTypedData(domain, types, value)
-
-    returnPayload = {
-      signature: signature,
-      timestamp: timestamp,
-      nonce: nonce,
-    }
-  } catch (e) {
-    console.error(`ERROR: ${e}`)
-  }
-
-  res.json(returnPayload)
+	res.json(returnPayload);
 }
