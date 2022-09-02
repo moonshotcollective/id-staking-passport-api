@@ -17,6 +17,7 @@ export default async function reader(req, res) {
 		'http://localhost:3000',
 		'http://localhost:3000/StakeDashboard',
 		'https://goerli-staking.surge.sh/',
+		'https://identity-staking-user-test.surge.sh/',
 	];
 	const origin = req.headers.origin;
 	if (allowedOrigins.includes(origin)) {
