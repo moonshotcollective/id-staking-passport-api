@@ -91,7 +91,7 @@ export default async function reader(req, res) {
 			name: 'IDStaking',
 			version: '1.0',
 			chainId: DOMAIN_CHAIN_ID || '1',
-			verifyingContract: process.env.CONTRACT_ADDRESS,
+			verifyingContract: process.env[`CONTRACT_ADDRESS_${DOMAIN_CHAIN_ID}`],
 		};
 
 		// The named list of all type definitions
