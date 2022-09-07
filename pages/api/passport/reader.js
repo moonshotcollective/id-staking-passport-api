@@ -18,6 +18,8 @@ export default async function reader(req, res) {
 		'http://localhost:3000/StakeDashboard',
 		'https://goerli-staking.surge.sh',
 		'https://identity-staking-user-test.surge.sh',
+		'https://staking.passport.gitcoin.co',
+		'https://identity-staking.vercel.app',
 	];
 	const origin = req.headers.origin;
 	if (allowedOrigins.includes(origin)) {
