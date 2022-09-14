@@ -15,11 +15,9 @@ export default async function reader(req, res) {
 	// Websites you wish to allow to connect
 	const allowedOrigins = [
 		'http://localhost:3000',
-		'http://localhost:3000/StakeDashboard',
-		'https://goerli-staking.surge.sh',
-		'https://identity-staking-user-test.surge.sh',
 		'https://staking.passport.gitcoin.co',
 		'https://identity-staking.vercel.app',
+		'https://id-staking.vercel.app',
 	];
 	const origin = req.headers.origin;
 	if (allowedOrigins.includes(origin)) {
